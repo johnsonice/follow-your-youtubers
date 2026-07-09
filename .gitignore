@@ -1,0 +1,11 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.DS_Store
+transcripts/*
+!transcripts/.gitkeep
+daily/*
+!daily/.gitkeep
