@@ -7,7 +7,10 @@ import re
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # pragma: no cover
+    from pytubefix import YouTube
 
 # Silence the harmless urllib3/LibreSSL warning on macOS system Python 3.9.
 warnings.filterwarnings("ignore", message=".*urllib3 v2 only supports OpenSSL.*")
@@ -125,7 +128,7 @@ def extract_video_id(raw: str) -> str:
 # step when audio exceeds Whisper's 25 MB cap.
 
 
-def yt_object(video_id: str):  # pragma: no cover
+def yt_object(video_id: str) -> YouTube:  # pragma: no cover
     """Construct a pytubefix YouTube object for the given video ID.
 
     Returned so callers can reuse it for both metadata and audio download
@@ -157,7 +160,7 @@ def yt_object(video_id: str):  # pragma: no cover
         ) from exc
 
 
-def fetch_metadata(yt) -> dict[str, Any]:  # pragma: no cover
+def fetch_metadata(yt: YouTube) -> dict[str, Any]:  # pragma: no cover
     """Pull title/author/duration off a pytubefix YouTube object.
 
     Pytubefix lazily fetches the watch page on first attribute access, so any
