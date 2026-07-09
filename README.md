@@ -14,13 +14,13 @@ unlock more capable transcript backends.
 ## Install
 
 ```bash
-git clone <this-repo-url> ~/.claude/skills/follow-your-youtubers
+git clone https://github.com/johnsonice/follow-your-youtubers.git ~/.claude/skills/follow-your-youtubers
 cd ~/.claude/skills/follow-your-youtubers
 python3 -m venv .venv
 .venv/bin/pip install youtube-transcript-api pytubefix requests
 ```
 
-Or with the skills CLI: `npx skills add <owner>/follow-your-youtubers`
+Or with the skills CLI: `npx skills add johnsonice/follow-your-youtubers`
 (then run the venv setup above inside the installed skill directory).
 
 Full first-run details (ffmpeg, keys): [references/setup.md](references/setup.md).
