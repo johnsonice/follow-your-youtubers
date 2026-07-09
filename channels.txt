@@ -1,0 +1,26 @@
+# Channels followed by the follow-your-youtubers skill.
+#
+# Format: @handle [key=value ...] [informational tokens, e.g. a URL]
+# A bare key=value line (no @handle) is a global directive.
+# Full reference with all tags: channels.example.txt
+#
+# These defaults are finance channels — replace them with your own.
+
+template=finance
+
+# English channels — captions available on YouTube
+@FinancialEducation	https://www.youtube.com/@FinancialEducation
+@meetkevin	https://www.youtube.com/@meetkevin
+@ParkevTatevosian	https://www.youtube.com/@parkevtatevosiancfa9544
+@TomNash	https://www.youtube.com/@TomNashTV
+@TheMotleyFool	https://www.youtube.com/@MotleyFool
+@ARKInvest	https://www.youtube.com/@ARKInvest2015
+@MorningstarInc	https://www.youtube.com/@morningstar
+
+# Chinese channels — captions disabled upstream; skip transcriptapi, use the
+# local captions/Whisper path with a Chinese language preference.
+@RhinoFinance	lang=zh	backend=local	https://www.youtube.com/@RhinoFinance
+@AlanChen	lang=zh	backend=local	https://www.youtube.com/@AlanChen
+
+# Unclassified — audit language on first run, then tag.
+@yttalkjun	https://www.youtube.com/@yttalkjun

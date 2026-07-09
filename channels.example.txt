@@ -1,0 +1,41 @@
+# channels.example.txt — full reference for the channels.txt format.
+# Copy this to channels.txt and edit. The skill re-reads channels.txt on
+# every run.
+#
+# FORMAT
+#   One channel per line. Whitespace-separated tokens:
+#     - first token: the channel's @handle (required)
+#     - key=value tokens: tags (see below)
+#     - anything else: informational, ignored by the parser (URLs, notes)
+#   Lines starting with # and blank lines are ignored.
+#   A bare key=value line with NO @handle is a global directive.
+#
+# GLOBAL DIRECTIVES
+#   template=finance   Brief style. "finance" (tickers, predictions registry)
+#                      or "general" (topics, claims). Default: finance.
+#
+# CHANNEL TAGS
+#   lang=<code>        Caption-language preference for this channel, e.g.
+#                      lang=zh (expands to the whole Chinese family) or
+#                      lang=ja. Also used as the Whisper language hint.
+#                      Untagged channels use the video's own caption track.
+#   backend=local      Skip the transcriptapi stage for this channel. Use for
+#                      channels where transcriptapi returns empty (usually
+#                      captions disabled by the owner) so no credits are
+#                      wasted before the local path runs.
+#
+# EXAMPLES
+
+template=general
+
+# A plain English channel — no tags needed:
+@veritasium	https://www.youtube.com/@veritasium
+
+# A Japanese channel — prefer Japanese captions:
+@NHKWORLDJAPAN	lang=ja
+
+# A channel with captions disabled — straight to the local path:
+@SomeCaptionlessChannel	backend=local
+
+# Chinese channel with captions disabled — both tags:
+@RhinoFinance	lang=zh	backend=local	https://www.youtube.com/@RhinoFinance
