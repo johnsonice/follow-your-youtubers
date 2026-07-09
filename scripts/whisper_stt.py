@@ -90,7 +90,7 @@ def download_audio(yt: YouTube, workdir: Path) -> Path:  # pragma: no cover
         raise TranscriptError(
             kind="audio_download_failed",
             detail="No audio-only streams available for this video.",
-            exit_code=2,
+            exit_code=1,
         )
 
     # pytubefix uses subtype "webm"/"mp4" etc. Keep the original container —
@@ -103,7 +103,7 @@ def download_audio(yt: YouTube, workdir: Path) -> Path:  # pragma: no cover
         raise TranscriptError(
             kind="audio_download_failed",
             detail=f"pytubefix download failed: {exc}",
-            exit_code=2,
+            exit_code=1,
         ) from exc
 
     audio_path = workdir / filename
