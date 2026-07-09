@@ -83,7 +83,7 @@ equivalent `yt-dlp` calls — the rest of the pipeline is unchanged.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `exit 3: missing_openai_key` | Whisper fallback fired but no key set | Set `OPENAI_API_KEY` or place it in `../../keys/.env` |
+| `exit 3: missing_openai_key` | Whisper fallback fired but no key set | Set `OPENAI_API_KEY` or add it to a skill-local .env |
 | `exit 3: openai_auth` | OpenAI rejected the key | Verify the key is current and has Whisper quota |
 | `exit 2: video_unavailable` | Video is private, region-blocked, or deleted | Skip and move on |
 | `exit 1: audio_download_failed` from pytubefix | YouTube reshaped mobile-client endpoints | `.venv/bin/pip install -U pytubefix` |
