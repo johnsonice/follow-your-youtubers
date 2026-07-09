@@ -91,3 +91,15 @@ def test_transcript_language_flag_expands_zh(monkeypatch, capsys) -> None:
     monkeypatch.setattr(fetch, "transcribe", spy)
     fetch.main(["transcript", "--video-url", "dQw4w9WgXcQ", "--language", "zh"])
     assert captured["languages"][0] == "zh-CN"
+
+
+def test_unexpected_exception_prints_json_and_exits_1(monkeypatch, capsys) -> None:
+    def boom(video_url, *, languages, allow_whisper):
+        raise ValueError("surprise")
+
+    monkeypatch.setattr(fetch, "transcribe", boom)
+    rc = fetch.main(["transcript", "--video-url", "dQw4w9WgXcQ"])
+    assert rc == 1
+    payload = _out_json(capsys)
+    assert payload["error"] == "unexpected"
+    assert "ValueError" in payload["detail"]

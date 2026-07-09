@@ -24,6 +24,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import NoReturn
 
 from captions import expand_language_preference, try_captions
 from core import (
@@ -41,7 +42,7 @@ from whisper_stt import download_audio, whisper_transcribe
 class JsonArgumentParser(argparse.ArgumentParser):
     """Keep the JSON-on-stdout error contract even for bad arguments."""
 
-    def error(self, message: str):
+    def error(self, message: str) -> NoReturn:
         json.dump({"error": "bad_args", "detail": message}, sys.stdout, ensure_ascii=False)
         sys.stdout.write("\n")
         raise SystemExit(3)
@@ -172,6 +173,13 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         json.dump(
             {"error": "interrupted", "detail": "User cancelled."},
+            sys.stdout, ensure_ascii=False,
+        )
+        sys.stdout.write("\n")
+        return 1
+    except Exception as exc:  # defensive: the JSON contract covers unexpected bugs too
+        json.dump(
+            {"error": "unexpected", "detail": f"{type(exc).__name__}: {exc}"},
             sys.stdout, ensure_ascii=False,
         )
         sys.stdout.write("\n")
