@@ -1,0 +1,7 @@
+# Runtime dependencies for scripts/fetch.py (install into the skill-local venv:
+# .venv/bin/pip install -r requirements.txt).
+# Deliberately unpinned: when YouTube reshapes its endpoints, the standard fix
+# is `pip install -U pytubefix` (see references/setup.md).
+youtube-transcript-api
+pytubefix
+requests

@@ -1,0 +1,20 @@
+{
+  "name": "follow-your-youtubers",
+  "metadata": {
+    "description": "Marketplace for the follow-your-youtubers skill: YouTube channel tracking with daily digest briefs"
+  },
+  "owner": {
+    "name": "johnsonice"
+  },
+  "plugins": [
+    {
+      "name": "follow-your-youtubers",
+      "description": "Follow a list of YouTube channels: discover new uploads for free, fetch transcripts (captions first, Whisper fallback), and write a daily digest brief. Works with zero API keys.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./"
+      ]
+    }
+  ]
+}

@@ -13,15 +13,34 @@ unlock more capable transcript backends.
 
 ## Install
 
-```bash
-git clone https://github.com/johnsonice/follow-your-youtubers.git ~/.claude/skills/follow-your-youtubers
-cd ~/.claude/skills/follow-your-youtubers
-python3 -m venv .venv
-.venv/bin/pip install youtube-transcript-api pytubefix requests
+Three routes — pick one:
+
+**Claude Code plugin (official):**
+
+```
+/plugin marketplace add johnsonice/follow-your-youtubers
+/plugin install follow-your-youtubers
 ```
 
-Or with the skills CLI: `npx skills add johnsonice/follow-your-youtubers`
-(then run the venv setup above inside the installed skill directory).
+**Skills CLI (works across agents — Claude Code, Cursor, Codex, …):**
+
+```bash
+npx skills add johnsonice/follow-your-youtubers
+```
+
+**Manual clone:**
+
+```bash
+git clone https://github.com/johnsonice/follow-your-youtubers.git ~/.claude/skills/follow-your-youtubers
+```
+
+**Then, whichever route you used — one-time Python setup** inside the
+installed skill directory:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
 
 Full first-run details (ffmpeg, keys): [references/setup.md](references/setup.md).
 

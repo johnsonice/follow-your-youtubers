@@ -1,0 +1,9 @@
+{
+  "name": "follow-your-youtubers",
+  "description": "Follow a list of YouTube channels: discover new uploads for free, fetch transcripts (captions first, Whisper fallback), and write a daily digest brief. Works with zero API keys.",
+  "version": "1.0.0",
+  "author": { "name": "johnsonice" },
+  "homepage": "https://github.com/johnsonice/follow-your-youtubers",
+  "repository": "johnsonice/follow-your-youtubers",
+  "license": "MIT"
+}

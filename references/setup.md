@@ -27,7 +27,7 @@ user runs.
 cd ~/.claude/skills/follow-your-youtubers  # or wherever you cloned the repo
 python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
-.venv/bin/pip install youtube-transcript-api pytubefix requests
+.venv/bin/pip install -r requirements.txt
 ```
 
 Verify:
