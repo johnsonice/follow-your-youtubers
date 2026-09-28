@@ -1,7 +1,8 @@
 # Channels followed by the follow-your-youtubers skill.
 #
-# Format: @handle [key=value ...] [informational tokens, e.g. a URL]
-# A bare key=value line (no @handle) is a global directive.
+# Format: @handle lang=<code> [key=value ...] [informational tokens, e.g. a URL]
+# Every channel row needs a lang= tag (see SKILL.md). A bare key=value line
+# (no @handle) is a global directive.
 # Full reference with all tags: channels.example.txt
 #
 # These defaults are finance channels — replace them with your own.
@@ -9,18 +10,18 @@
 template=finance
 
 # English channels — captions available on YouTube
-@FinancialEducation	https://www.youtube.com/@FinancialEducation
-@meetkevin	https://www.youtube.com/@meetkevin
-@parkevtatevosiancfa9544	https://www.youtube.com/@parkevtatevosiancfa9544
-@TomNashTV	https://www.youtube.com/@TomNashTV
-@MotleyFool	https://www.youtube.com/@MotleyFool
-@ARKInvest2015	https://www.youtube.com/@ARKInvest2015
-@morningstar	https://www.youtube.com/@morningstar
+@FinancialEducation	lang=en	https://www.youtube.com/@FinancialEducation
+@meetkevin	lang=en	https://www.youtube.com/@meetkevin
+@parkevtatevosiancfa9544	lang=en	https://www.youtube.com/@parkevtatevosiancfa9544
+@TomNashTV	lang=en	https://www.youtube.com/@TomNashTV
+@MotleyFool	lang=en	https://www.youtube.com/@MotleyFool
+@ARKInvest2015	lang=en	https://www.youtube.com/@ARKInvest2015
+@morningstar	lang=en	https://www.youtube.com/@morningstar
+
+# Chinese channels — captions available on YouTube
+@yttalkjun	lang=zh	https://www.youtube.com/@yttalkjun
 
 # Chinese channels — captions disabled upstream; skip transcriptapi, use the
 # local captions/Whisper path with a Chinese language preference.
 @RhinoFinance	lang=zh	backend=local	https://www.youtube.com/@RhinoFinance
 @AlanChen	lang=zh	backend=local	https://www.youtube.com/@AlanChen
-
-# Unclassified — audit language on first run, then tag.
-@yttalkjun	https://www.youtube.com/@yttalkjun

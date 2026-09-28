@@ -89,3 +89,6 @@ equivalent `yt-dlp` calls — the rest of the pipeline is unchanged.
 | `exit 1: audio_too_large` | Re-encoded audio still > 25 MB after segmentation | Inspect the video — likely 4+ hours of speech; consider preprocessing |
 | `exit 1: openai_unavailable` (after retries) | OpenAI 429 or 5xx persisted | Wait a minute and retry; check status.openai.com |
 | `exit 2: channel_unavailable` from `latest` | Handle typo or channel deleted | Fix the @handle in channels.txt |
+| `exit 1: captions_fetch_failed` with `IpBlocked` / `RequestBlocked` | YouTube blocked this IP after a burst of requests | Stop; don't retry. Switch networks (toggle VPN, phone hotspot) or wait a few hours. Keep future runs serial and paced (SKILL.md → YouTube request discipline) |
+| `exit 1: rss_fetch_failed` (`RSS feed returned 404`) on every channel | YouTube's RSS endpoint is down (intermittent since Dec 2025); not your handles | Stop discovery and retry later, or configure transcriptapi for `channel/latest` |
+| Transcript in the wrong language (e.g. Arabic for an English video) | Channel row has no `lang=` tag; auto-dubbed videos list ~20 auto-generated tracks | Add `lang=<code>` to the row in channels.txt |
