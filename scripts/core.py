@@ -19,8 +19,7 @@ warnings.filterwarnings("ignore", message=".*urllib3 v2 only supports OpenSSL.*"
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 DOTENV_SEARCH_PATHS: list[Path] = [
-    SKILL_DIR.parent.parent / "keys" / ".env",  # <repo-parent-parent>/keys/.env (huang's shared key file)
-    SKILL_DIR / ".env",                         # skill-local override
+    SKILL_DIR / ".env",  # skill-local, gitignored
 ]
 
 

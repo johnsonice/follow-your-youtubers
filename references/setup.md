@@ -41,8 +41,7 @@ Verify:
 The script discovers the key in this order — first match wins:
 
 1. The inherited shell environment (`export OPENAI_API_KEY=sk-...`).
-2. `../../keys/.env` relative to the skill directory (legacy layout support).
-3. A skill-local `.env` (gitignored) — **the recommended location**:
+2. A skill-local `.env` (gitignored) — **the recommended location**:
    `echo 'OPENAI_API_KEY=sk-...' > .env` in the skill directory.
 
 If none of the above is set and the captions path fails, the script exits
