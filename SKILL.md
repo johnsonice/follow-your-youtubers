@@ -139,8 +139,15 @@ did. Every rule below exists to keep a run from doing that again.
 1. **Load channels.** Parse channels.txt per the format above. Apply global
    directives; default `template=finance`. Skip (and warn about) any channel
    row without a `lang=` tag.
-2. **Per-channel cutoff.** For each handle, look in `transcripts/<handle>/`:
-   max `YYYY-MM-DD` filename prefix if files exist, else today − 7 days.
+2. **Per-channel cutoff (lookback window).** For each handle, cutoff = the
+   earlier of (a) today − 7 days and (b) the max `YYYY-MM-DD` filename prefix
+   in `transcripts/<handle>/` (ignore (b) when the folder is empty). The
+   window always reaches back at least 7 days. It reaches further only when
+   the channel's newest saved transcript is older than that, so runs missed
+   for a while are caught up automatically. The cutoff only limits how far
+   back to look. Step 4's videoId check is what prevents refetching. (A
+   cutoff at the newest saved date permanently dropped a second video
+   published the same day, and every video that failed on an earlier run.)
 3. **Discover new uploads (always free).** Preferred: transcriptapi's
    `channel/latest` (0 credits) when configured. Otherwise:
    `.venv/bin/python scripts/fetch.py latest --channel @HANDLE`
@@ -148,8 +155,11 @@ did. Every rule below exists to keep a run from doing that again.
    Channels one at a time with a pause between each (see YouTube request
    discipline). A single-channel failure must not abort the run — log
    inline, continue — unless the RSS-outage rule applies.
-4. **Filter to new uploads.** Keep videos where BOTH: `published` is after the
-   channel's cutoff, AND no `transcripts/<handle>/*_<videoId>.md` exists.
+4. **Filter to new uploads.** Keep videos where BOTH: the date part of
+   `published` is on or after the channel's cutoff (`>=`, not `>`), AND no
+   `transcripts/<handle>/*_<videoId>.md` exists. A video that failed on an
+   earlier run has no file, so it comes back here and is retried
+   automatically while it is inside the window.
 5. **Fetch and save transcripts.** Run each surviving video through the
    backend chain, one video at a time with a pause between each. On success
    write `transcripts/<handle>/<published-date>_<videoId>.md` using the
@@ -197,16 +207,25 @@ fetch.py's captions path), `whisper` (fetch.py's Whisper path — copy the
   costs 1 credit/video. Whisper costs ~$0.006/min (~$0.15 per 25-min video).
 - Cutoff + filesystem dedup are the only guards against runaway spend. Never
   fetch a transcript unless both step-4 conditions hold.
+- Retries are bounded by the window, with no separate failure ledger. A
+  video that keeps failing (e.g. a captionless video whose Whisper upload
+  errors) is retried once per run until its published date falls before the
+  cutoff: at most ~7 daily runs.
 - Watch the tally's `via whisper` figure run-to-run — a sudden jump means a
   channel's captions went dark.
-- Backfills beyond the last 7 days: estimate first
+- Backfills (videos published before the step-2 cutoff) happen only when
+  the user explicitly asks: estimate first
   (`videos × 1 credit` and/or `captionless videos × ~$0.15`) and confirm with
-  the user before fetching. Backfills still obey YouTube request discipline.
+  the user before fetching. Automatic catch-up after missed runs (step 2) is
+  not a backfill and needs no confirmation. Backfills still obey YouTube
+  request discipline.
 
 ## Failure handling
 
 - Single-channel discovery failure → log inline, continue with the rest.
 - Single-video failure → fall through the chain; if exhausted, log and skip.
+  No file is written, so later runs retry it while it is inside the step-2
+  window.
 - transcriptapi 402 (out of credits) → disable stage 1 for the rest of the
   run; the chain continues at stage 2. Surface in the tally.
 - fetch.py exit 3 (`missing_openai_key`, `openai_auth`) → disable stage 3 for
