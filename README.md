@@ -53,7 +53,8 @@ In Claude Code, from any project:
 Claude reads `channels.txt`, checks each channel for new uploads (free),
 fetches transcripts through the backend chain, and writes the daily brief.
 Edit `channels.txt` to change the list — see `channels.example.txt` for the
-full format.
+full format. Every channel row needs a `lang=` tag (e.g. `lang=en`,
+`lang=zh`) so auto-dubbed videos don't come back in the wrong language.
 
 ## Transcript backend chain
 

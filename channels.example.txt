@@ -15,10 +15,13 @@
 #                      or "general" (topics, claims). Default: finance.
 #
 # CHANNEL TAGS
-#   lang=<code>        Caption-language preference for this channel, e.g.
-#                      lang=zh (expands to the whole Chinese family) or
-#                      lang=ja. Also used as the Whisper language hint.
-#                      Untagged channels use the video's own caption track.
+#   lang=<code>        REQUIRED on every channel row. The language the channel
+#                      speaks, e.g. lang=en, lang=ja, or lang=zh (expands to
+#                      the whole Chinese family). Pins the caption track and
+#                      is the Whisper language hint. Without it, videos with
+#                      YouTube auto-dubbing expose ~20 auto-generated tracks
+#                      and the wrong one gets picked (e.g. Arabic captions for
+#                      an English video). Rows missing lang= are skipped.
 #   backend=local      Skip the transcriptapi stage for this channel. Use for
 #                      channels where transcriptapi returns empty (usually
 #                      captions disabled by the owner) so no credits are
@@ -28,14 +31,14 @@
 
 template=general
 
-# A plain English channel — no tags needed:
-@veritasium	https://www.youtube.com/@veritasium
+# A plain English channel:
+@veritasium	lang=en	https://www.youtube.com/@veritasium
 
 # A Japanese channel — prefer Japanese captions:
 @NHKWORLDJAPAN	lang=ja
 
-# A channel with captions disabled — straight to the local path:
-@SomeCaptionlessChannel	backend=local
+# An English channel with captions disabled — straight to the local path:
+@SomeCaptionlessChannel	lang=en	backend=local
 
 # Chinese channel with captions disabled — both tags:
 @RhinoFinance	lang=zh	backend=local	https://www.youtube.com/@RhinoFinance
