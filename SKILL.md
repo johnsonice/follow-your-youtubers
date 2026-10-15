@@ -9,7 +9,9 @@ description: |
   (transcriptapi if configured → free YouTube captions → OpenAI Whisper if
   configured), saves raw transcripts under transcripts/<handle>/, then writes
   a synthesis brief to daily/<YYYY-MM-DD>.md using the template selected in
-  channels.txt (finance by default). Works with zero API keys.
+  channels.txt (finance by default). The brief is written in whatever
+  language the user asks for, or else the language of the request. Works
+  with zero API keys.
 required_environment_variables:
   - name: TRANSCRIPTAPI_API_KEY
     prompt: transcriptapi.com API key (optional — leave empty to skip)
@@ -168,16 +170,43 @@ did. Every rule below exists to keep a run from doing that again.
    on exit 1, and never on an IP block: trip the circuit breaker instead.
 6. **Write the daily brief.** After all fetches, write `daily/<today>.md`
    following the selected `templates/<name>.md`, covering ONLY transcripts
-   captured this run. 800–1500 words of substance. Non-English content: the
-   brief stays in English, but quote key numbers and claims in the original
-   language with an English gloss. If `daily/<today>.md` exists from an
-   earlier run today, append a `## Additional pull — HH:MM` section instead of
-   overwriting. Zero new transcripts → no daily file; print the tally and stop.
+   captured this run. 800–1500 words of substance. Write it in the brief
+   language (see "Brief language" below). If `daily/<today>.md` exists from an
+   earlier run today, append a `## Additional pull — HH:MM` section (heading
+   translated into the brief language) instead of overwriting. Zero new
+   transcripts → no daily file; print the tally and stop.
 7. **Tally** as the last line of your reply:
    `N channels checked, M new transcripts saved (A via transcriptapi, B via captions, C via whisper), K credits spent`
    — always show every line item, even when zero. If the circuit breaker
    tripped or channels were skipped for a missing `lang=`, say so (with
    counts) in one line right above the tally.
+
+## Brief language
+
+The daily brief and your reply are written in one **brief language**, which
+any language can be. To pick it:
+
+1. If the user's request names an output language ("write the brief in
+   Japanese", "用中文输出"), use that language.
+2. Otherwise, use the language the user's request is written in. "follow my
+   youtubers" → English. "拉一下今天的视频" → Chinese.
+
+The brief language has nothing to do with a channel's `lang=` tag. That tag
+only picks the caption track to fetch. An English request over Chinese
+channels gets an English brief, and the reverse holds too.
+
+In the brief language:
+- Translate the template's headings and table column names. Keep the section
+  order the template sets.
+- Write all prose and table text in it. Leave tickers, `@handle`s, videoIds,
+  numbers, price levels and proper nouns unchanged.
+- If a source is in the brief language, quote it directly. If it's in another
+  language, quote the key numbers and claims in the original and add a short
+  gloss in the brief language. Example: 「预计能提升年度EPS5%左右」 ("about +5%
+  annual EPS") in an English brief.
+- Never translate the transcript files. They stay raw source text.
+- The step-7 tally line keeps its fixed English format, so runs can be
+  compared over time.
 
 ## Transcript file template
 

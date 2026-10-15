@@ -56,6 +56,11 @@ Edit `channels.txt` to change the list — see `channels.example.txt` for the
 full format. Every channel row needs a `lang=` tag (e.g. `lang=en`,
 `lang=zh`) so auto-dubbed videos don't come back in the wrong language.
 
+The brief is written in the language you ask in. "follow my youtubers" gets
+an English brief, and "拉一下今天的视频" gets a Chinese one. You can also name
+the language directly ("write the brief in Japanese"). This is separate from
+the channels' `lang=` tags, so a Chinese brief can cover English channels.
+
 ## Transcript backend chain
 
 | Stage | Needs | Cost |
