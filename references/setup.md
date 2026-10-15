@@ -92,3 +92,9 @@ equivalent `yt-dlp` calls — the rest of the pipeline is unchanged.
 | `exit 1: captions_fetch_failed` with `IpBlocked` / `RequestBlocked` | YouTube blocked this IP after a burst of requests | Stop; don't retry. Switch networks (toggle VPN, phone hotspot) or wait a few hours. Keep future runs serial and paced (SKILL.md → YouTube request discipline) |
 | `exit 1: rss_fetch_failed` (`RSS feed returned 404`) on every channel | YouTube's RSS endpoint is down (intermittent since Dec 2025); not your handles | Stop discovery and retry later, or configure transcriptapi for `channel/latest` |
 | Transcript in the wrong language (e.g. Arabic for an English video) | Channel row has no `lang=` tag; auto-dubbed videos list ~20 auto-generated tracks | Add `lang=<code>` to the row in channels.txt |
+
+## Proxy, fallback and skipped-video log
+
+- **Proxy:** set `YT_PROXY=http://user:pass@host:port` (or `HTTPS_PROXY`) in the shell or skill-local `.env`. It is used by youtube-transcript-api, pytubefix and yt-dlp. A rotating residential proxy is the durable fix for `IpBlocked`; with a proxy set, blocked caption fetches are retried with exponential backoff (3 attempts). Without a proxy, blocks are not retried (that only extends the block).
+- **Fallback:** if youtube-transcript-api fails or finds nothing, `yt-dlp` subtitles (json3) are tried if `yt-dlp` is on PATH. Metadata failures no longer abort the transcript.
+- **Skipped videos:** every failed `transcript` call appends a line to `transcripts/skipped.jsonl` (`video_id`, `error`, `detail`, `ts`). Retry them later, serially, from a different network/proxy.

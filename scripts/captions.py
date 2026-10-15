@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from core import Snippet, TranscriptError
+from net import is_block_error, proxy_url, retry_with_backoff
 
 # Order matters: simplified mainland first, then generic, then traditional.
 CHINESE_LANG_PREFERENCE: list[str] = [
@@ -64,15 +65,33 @@ def try_captions(
         VideoUnavailable,
     )
 
-    api = YouTubeTranscriptApi()
-    try:
+    px = proxy_url()
+    if px:
+        from youtube_transcript_api.proxies import GenericProxyConfig
+
+        api = YouTubeTranscriptApi(
+            proxy_config=GenericProxyConfig(http_url=px, https_url=px)
+        )
+    else:
+        api = YouTubeTranscriptApi()
+
+    def _fetch():
         if languages:
-            fetched = api.fetch(video_id, languages=languages)
-        else:
-            track = select_auto_track(list(api.list(video_id)))
-            if track is None:
-                return None
-            fetched = track.fetch()
+            return api.fetch(video_id, languages=languages)
+        track = select_auto_track(list(api.list(video_id)))
+        return None if track is None else track.fetch()
+
+    def _retryable(exc: BaseException) -> bool:
+        if isinstance(exc, (NoTranscriptFound, TranscriptsDisabled, VideoUnavailable)):
+            return False
+        # Retrying a block from the same IP only extends it; with a (rotating)
+        # proxy a retry may land on a fresh exit IP.
+        return bool(px) or not is_block_error(exc)
+
+    try:
+        fetched = retry_with_backoff(_fetch, attempts=3, should_retry=_retryable)
+        if fetched is None:
+            return None
     except (NoTranscriptFound, TranscriptsDisabled):
         return None
     except VideoUnavailable as exc:
@@ -83,7 +102,7 @@ def try_captions(
         ) from exc
     except Exception as exc:  # network blips, upstream parsing changes
         raise TranscriptError(
-            kind="captions_fetch_failed",
+            kind="ip_blocked" if is_block_error(exc) else "captions_fetch_failed",
             detail=f"{type(exc).__name__}: {exc}",
             exit_code=1,
         ) from exc

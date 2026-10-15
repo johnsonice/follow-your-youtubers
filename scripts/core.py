@@ -144,6 +144,11 @@ def yt_object(video_id: str) -> YouTube:  # pragma: no cover
 
     url = f"https://www.youtube.com/watch?v={video_id}"
     try:
+        from net import proxy_url
+
+        px = proxy_url()
+        if px:
+            return YouTube(url, proxies={"http": px, "https": px})
         return YouTube(url)
     except (VideoPrivate, MembersOnly, AgeRestrictedError, VideoUnavailable) as exc:
         raise TranscriptError(
