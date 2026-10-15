@@ -87,10 +87,12 @@ inline (`@handle:<videoId>: stage failed — <reason>`).
    `TRANSCRIPTAPI_API_KEY` is set (call the HTTP API per transcriptapi.com
    docs). Costs 1 credit per transcript.
 2. **Local captions** — free, no account:
-   `.venv/bin/python scripts/fetch.py transcript --video-url <videoId> --language <lang> --no-whisper --format json`
-   (always pass the channel's `lang` tag as `--language`).
+   `.venv/bin/python scripts/fetch.py transcript --video-url=<videoId> --language <lang> --no-whisper --format json`
+   (always pass the channel's `lang` tag as `--language`, and always use the
+   `--video-url=<videoId>` form: a videoId starting with `-` is otherwise
+   parsed as a flag and fails with `bad_args`).
 3. **Whisper** — only if `OPENAI_API_KEY` resolves; ~$0.006/min:
-   `.venv/bin/python scripts/fetch.py transcript --video-url <videoId> --language <lang> --format json`
+   `.venv/bin/python scripts/fetch.py transcript --video-url=<videoId> --language <lang> --format json`
    (same `--language` rule). The script runs captions first internally, so
    stage 3 also covers stage 2 — invoke stage 3 directly instead of stage 2
    when a Whisper key exists.
@@ -141,19 +143,23 @@ did. Every rule below exists to keep a run from doing that again.
 1. **Load channels.** Parse channels.txt per the format above. Apply global
    directives; default `template=finance`. Skip (and warn about) any channel
    row without a `lang=` tag.
-2. **Per-channel cutoff (lookback window).** For each handle, cutoff = the
-   earlier of (a) today − 7 days and (b) the max `YYYY-MM-DD` filename prefix
-   in `transcripts/<handle>/` (ignore (b) when the folder is empty). The
-   window always reaches back at least 7 days. It reaches further only when
-   the channel's newest saved transcript is older than that, so runs missed
-   for a while are caught up automatically. The cutoff only limits how far
-   back to look. Step 4's videoId check is what prevents refetching. (A
-   cutoff at the newest saved date permanently dropped a second video
-   published the same day, and every video that failed on an earlier run.)
+2. **Cutoff (lookback window).** cutoff = today − 7 days, the same for every
+   channel. The skill is about freshness, so it never reaches further back,
+   even after missed runs: videos older than 7 days are dropped, not caught
+   up. The cutoff only limits how far back to look. Step 4's videoId check
+   is what prevents refetching. (A cutoff at the newest saved date
+   permanently dropped a second video published the same day, and every
+   video that failed on an earlier run.)
 3. **Discover new uploads (always free).** Preferred: transcriptapi's
    `channel/latest` (0 credits) when configured. Otherwise:
    `.venv/bin/python scripts/fetch.py latest --channel @HANDLE`
-   → `{"channel": "@h", "results": [{"video_id", "title", "published", "url"}]}`.
+   → `{"channel": "@h", "results": [{"video_id", "title", "published", "url", "is_short"}], "shorts_skipped": N}`.
+   **Shorts are skipped by default.** The RSS link of a Short is
+   `/shorts/<id>`, so `latest` drops them with no extra request and reports
+   how many in `shorts_skipped`. They are mostly clips of longer videos and
+   only add YouTube requests. Pass `--include-shorts` only if the user asks
+   for Shorts. With transcriptapi's `channel/latest`, drop Shorts the same
+   way if its rows expose them.
    Channels one at a time with a pause between each (see YouTube request
    discipline). A single-channel failure must not abort the run — log
    inline, continue — unless the RSS-outage rule applies.
@@ -245,9 +251,9 @@ fetch.py's captions path), `whisper` (fetch.py's Whisper path — copy the
 - Backfills (videos published before the step-2 cutoff) happen only when
   the user explicitly asks: estimate first
   (`videos × 1 credit` and/or `captionless videos × ~$0.15`) and confirm with
-  the user before fetching. Automatic catch-up after missed runs (step 2) is
-  not a backfill and needs no confirmation. Backfills still obey YouTube
-  request discipline.
+  the user before fetching. Never offer or suggest one on your own: missed
+  runs and blocked videos that age out of the window are simply dropped.
+  Backfills still obey YouTube request discipline.
 
 ## Failure handling
 

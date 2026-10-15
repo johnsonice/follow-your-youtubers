@@ -3,7 +3,8 @@
 
 Subcommands:
   latest      List a channel's recent uploads via YouTube's public RSS feed.
-              Free, no API key, any-language channel.
+              Free, no API key, any-language channel. Shorts are dropped
+              unless --include-shorts is passed.
   transcript  Fetch a video transcript: native captions first (free), then
               OpenAI Whisper fallback (~$0.006/min, needs OPENAI_API_KEY).
 
@@ -106,7 +107,9 @@ def transcribe(
 
 
 def cmd_latest(args: argparse.Namespace) -> int:
-    payload = channel_latest(args.channel, limit=args.limit)
+    payload = channel_latest(
+        args.channel, limit=args.limit, include_shorts=args.include_shorts
+    )
     json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0
@@ -139,6 +142,10 @@ def build_parser() -> JsonArgumentParser:
     latest.add_argument(
         "--limit", type=int, default=None,
         help="Max results (default: all ~15 entries YouTube's RSS feed carries).",
+    )
+    latest.add_argument(
+        "--include-shorts", action="store_true",
+        help="Keep YouTube Shorts (dropped by default; detected from the feed URL).",
     )
     latest.set_defaults(func=cmd_latest)
 
