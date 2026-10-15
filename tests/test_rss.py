@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from core import TranscriptError
-from rss import extract_channel_id, parse_feed
+from rss import drop_shorts, extract_channel_id, parse_feed
 
 CHANNEL_PAGE_HTML = """
 <html><head>
@@ -28,6 +28,12 @@ FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <published>2026-06-30T09:30:00+00:00</published>
     <link rel="alternate" href="https://www.youtube.com/watch?v=def456UVW11"/>
   </entry>
+  <entry>
+    <yt:videoId>shrt789RST2</yt:videoId>
+    <title>A short clip</title>
+    <published>2026-06-29T08:00:00+00:00</published>
+    <link rel="alternate" href="https://www.youtube.com/shorts/shrt789RST2"/>
+  </entry>
 </feed>
 """
 
@@ -45,7 +51,7 @@ def test_extract_channel_id_missing_raises_exit_1() -> None:
 
 def test_parse_feed_returns_entries_in_feed_order() -> None:
     results = parse_feed(FEED_XML)
-    assert [r["video_id"] for r in results] == ["abc123XYZ00", "def456UVW11"]
+    assert [r["video_id"] for r in results] == ["abc123XYZ00", "def456UVW11", "shrt789RST2"]
     first = results[0]
     assert first["title"] == "First video"
     assert first["published"] == "2026-07-01T12:00:00+00:00"
@@ -55,7 +61,7 @@ def test_parse_feed_returns_entries_in_feed_order() -> None:
 def test_parse_feed_skips_entry_missing_video_id() -> None:
     broken = FEED_XML.replace("<yt:videoId>abc123XYZ00</yt:videoId>", "", 1)
     results = parse_feed(broken)
-    assert [r["video_id"] for r in results] == ["def456UVW11"]
+    assert [r["video_id"] for r in results] == ["def456UVW11", "shrt789RST2"]
 
 
 def test_parse_feed_invalid_xml_raises_exit_1() -> None:
@@ -63,3 +69,27 @@ def test_parse_feed_invalid_xml_raises_exit_1() -> None:
         parse_feed("this is not xml <")
     assert exc.value.exit_code == 1
     assert exc.value.kind == "rss_parse_failed"
+
+
+def test_parse_feed_flags_shorts_by_their_shorts_url() -> None:
+    flags = {r["video_id"]: r["is_short"] for r in parse_feed(FEED_XML)}
+    assert flags == {"abc123XYZ00": False, "def456UVW11": False, "shrt789RST2": True}
+
+
+def test_drop_shorts_keeps_regular_videos_in_order_and_counts_skipped() -> None:
+    results = parse_feed(FEED_XML)
+
+    kept, skipped = drop_shorts(results)
+
+    assert [r["video_id"] for r in kept] == ["abc123XYZ00", "def456UVW11"]
+    assert skipped == 1
+    assert len(results) == 3  # input list is not mutated
+
+
+def test_drop_shorts_with_no_shorts_skips_nothing() -> None:
+    results = parse_feed(FEED_XML)[:2]
+
+    kept, skipped = drop_shorts(results)
+
+    assert kept == results
+    assert skipped == 0

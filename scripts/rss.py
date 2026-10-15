@@ -3,6 +3,8 @@
 Resolves an @handle to a channel ID by scraping the channel page's canonical
 link, then reads https://www.youtube.com/feeds/videos.xml?channel_id=UC...
 The feed carries the ~15 most recent uploads. Zero credits, no API key.
+Shorts are recognisable for free: their feed link is /shorts/<id> instead of
+/watch?v=<id>, so they can be dropped without any extra YouTube request.
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ CHANNEL_URL_TEMPLATE = "https://www.youtube.com/{handle}"
 CHANNEL_ID_RE = re.compile(r"youtube\.com/channel/(UC[A-Za-z0-9_-]{22})")
 REQUEST_TIMEOUT_S = 30
 _BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+SHORTS_PATH = "/shorts/"
 
 _ATOM = "{http://www.w3.org/2005/Atom}"
 _YT = "{http://www.youtube.com/xml/schemas/2015}"
@@ -63,12 +66,21 @@ def parse_feed(xml_text: str) -> list[dict[str, Any]]:
                 "title": entry.findtext(f"{_ATOM}title") or "",
                 "published": published,
                 "url": url,
+                "is_short": SHORTS_PATH in url,
             }
         )
     return results
 
 
-def channel_latest(handle: str, limit: int | None = None) -> dict[str, Any]:  # pragma: no cover
+def drop_shorts(results: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """Return (non-Shorts rows in feed order, number of Shorts dropped)."""
+    kept = [row for row in results if not row["is_short"]]
+    return kept, len(results) - len(kept)
+
+
+def channel_latest(  # pragma: no cover
+    handle: str, limit: int | None = None, include_shorts: bool = False
+) -> dict[str, Any]:
     """Fetch a channel's recent uploads. Network wrapper around the pure parsers."""
     import requests
 
@@ -125,6 +137,9 @@ def channel_latest(handle: str, limit: int | None = None) -> dict[str, Any]:  # 
         )
 
     results = parse_feed(feed.text)
+    shorts_skipped = 0
+    if not include_shorts:
+        results, shorts_skipped = drop_shorts(results)
     if limit is not None:
         results = results[:limit]
-    return {"channel": handle, "results": results}
+    return {"channel": handle, "results": results, "shorts_skipped": shorts_skipped}

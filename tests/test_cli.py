@@ -27,15 +27,24 @@ def test_latest_missing_channel_exits_3_with_json(capsys) -> None:
     assert _out_json(capsys)["error"] == "bad_args"
 
 
+def _fake_latest(handle, limit=None, include_shorts=False):
+    return {"channel": handle, "results": [], "limit": limit, "include_shorts": include_shorts}
+
+
 def test_latest_dispatches_and_prints_json(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(
-        fetch,
-        "channel_latest",
-        lambda handle, limit=None: {"channel": handle, "results": [], "limit": limit},
-    )
+    monkeypatch.setattr(fetch, "channel_latest", _fake_latest)
     rc = fetch.main(["latest", "--channel", "@example", "--limit", "3"])
     assert rc == 0
-    assert _out_json(capsys) == {"channel": "@example", "results": [], "limit": 3}
+    assert _out_json(capsys) == {
+        "channel": "@example", "results": [], "limit": 3, "include_shorts": False,
+    }
+
+
+def test_latest_include_shorts_flag_is_passed_through(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(fetch, "channel_latest", _fake_latest)
+    rc = fetch.main(["latest", "--channel", "@example", "--include-shorts"])
+    assert rc == 0
+    assert _out_json(capsys)["include_shorts"] is True
 
 
 def test_transcript_error_prints_json_and_exit_code(monkeypatch, capsys) -> None:
