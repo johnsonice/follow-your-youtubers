@@ -36,7 +36,9 @@ from core import (
     load_dotenv_into_env,
     yt_object,
 )
+from net import log_skipped
 from rss import channel_latest
+from ytdlp_subs import try_ytdlp_subs
 from whisper_stt import download_audio, whisper_transcribe
 
 
@@ -57,10 +59,35 @@ def transcribe(
 ) -> TranscriptResult:
     """Captions -> Whisper orchestration. languages=None means auto-select."""
     video_id = extract_video_id(video_url)
-    yt = yt_object(video_id)
-    metadata = fetch_metadata(yt)
+    # Metadata is nice-to-have: a blocked watch page must not cost us the
+    # transcript, so degrade to empty metadata instead of aborting.
+    yt = None
+    try:
+        yt = yt_object(video_id)
+        metadata = fetch_metadata(yt)
+    except TranscriptError as err:
+        if err.exit_code == 2:
+            raise
+        metadata = {"title": None, "author_name": None, "author_url": None,
+                    "duration": None, "metadata_error": err.detail[:200]}
 
-    captions = try_captions(video_id, languages)
+    # Stage 1: youtube-transcript-api. Stage 2: yt-dlp subtitles fallback.
+    captions = None
+    primary_err = None
+    try:
+        captions = try_captions(video_id, languages)
+    except TranscriptError as err:
+        if err.exit_code == 2:
+            raise
+        primary_err = err
+    if captions is None:
+        try:
+            captions = try_ytdlp_subs(video_id, languages)
+        except TranscriptError as err:
+            if primary_err is None:
+                primary_err = err
+    if captions is None and primary_err is not None:
+        raise primary_err
     if captions is not None:
         lang, snippets = captions
         return TranscriptResult(
@@ -69,6 +96,13 @@ def transcribe(
             snippets=tuple(snippets),
             metadata=metadata,
             source="captions",
+        )
+
+    if yt is None:
+        raise TranscriptError(
+            kind="metadata_fetch_failed",
+            detail="No captions and pytubefix could not load the video for Whisper: "
+                   + str(metadata.get("metadata_error")),
         )
 
     if not allow_whisper:
@@ -174,6 +208,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return args.func(args)
     except TranscriptError as err:
+        if getattr(args, "command", None) == "transcript":
+            try:
+                vid = extract_video_id(args.video_url)
+            except Exception:
+                vid = args.video_url
+            log_skipped(vid, err.kind, err.detail)
         json.dump({"error": err.kind, "detail": err.detail}, sys.stdout, ensure_ascii=False)
         sys.stdout.write("\n")
         return err.exit_code

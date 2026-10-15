@@ -5,3 +5,4 @@
 youtube-transcript-api
 pytubefix
 requests
+# Optional: yt-dlp on PATH enables the subtitle fallback (brew install yt-dlp).
