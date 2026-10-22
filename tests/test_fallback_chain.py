@@ -52,6 +52,7 @@ def test_ytdlp_passes_cookie_flags(monkeypatch):
     cmd = seen["cmd"]
     assert cmd[cmd.index("--cookies-from-browser") + 1] == "chrome"
     assert cmd[-1] == f"https://www.youtube.com/watch?v={VID}"
+    assert "--ignore-no-formats-error" in cmd
 
 
 @pytest.fixture

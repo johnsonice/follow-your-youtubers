@@ -44,7 +44,10 @@ def try_ytdlp_subs(
     langs = ",".join(languages) if languages else "en.*,zh.*,.*-orig"
     with tempfile.TemporaryDirectory(prefix="fyy_subs_") as tmp:
         cmd = [
-            exe, "--skip-download", "--write-subs", "--write-auto-subs",
+            # Subtitles don't need a playable format; without this flag yt-dlp
+            # aborts with "Requested format is not available" before writing them.
+            exe, "--skip-download", "--ignore-no-formats-error",
+            "--write-subs", "--write-auto-subs",
             "--sub-langs", langs, "--sub-format", "json3",
             "-o", str(Path(tmp) / "%(id)s"), "--no-warnings", "--quiet",
         ]
