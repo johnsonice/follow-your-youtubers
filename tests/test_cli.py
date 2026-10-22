@@ -48,7 +48,7 @@ def test_latest_include_shorts_flag_is_passed_through(monkeypatch, capsys) -> No
 
 
 def test_transcript_error_prints_json_and_exit_code(monkeypatch, capsys) -> None:
-    def boom(video_url, *, languages, allow_whisper):
+    def boom(video_url, *, languages, allow_whisper, **_):
         raise TranscriptError(kind="no_captions", detail="none found", exit_code=2)
 
     monkeypatch.setattr(fetch, "transcribe", boom)
@@ -71,7 +71,7 @@ def _fake_result() -> TranscriptResult:
 
 def test_transcript_json_format(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
-        fetch, "transcribe", lambda v, *, languages, allow_whisper: _fake_result()
+        fetch, "transcribe", lambda v, *, languages, allow_whisper, **_: _fake_result()
     )
     rc = fetch.main(["transcript", "--video-url", "dQw4w9WgXcQ"])
     assert rc == 0
@@ -83,7 +83,7 @@ def test_transcript_json_format(monkeypatch, capsys) -> None:
 
 def test_transcript_text_format_concatenates(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
-        fetch, "transcribe", lambda v, *, languages, allow_whisper: _fake_result()
+        fetch, "transcribe", lambda v, *, languages, allow_whisper, **_: _fake_result()
     )
     rc = fetch.main(["transcript", "--video-url", "dQw4w9WgXcQ", "--format", "text"])
     assert rc == 0
@@ -93,7 +93,7 @@ def test_transcript_text_format_concatenates(monkeypatch, capsys) -> None:
 def test_transcript_language_flag_expands_zh(monkeypatch, capsys) -> None:
     captured: dict = {}
 
-    def spy(video_url, *, languages, allow_whisper):
+    def spy(video_url, *, languages, allow_whisper, **_):
         captured["languages"] = languages
         return _fake_result()
 
@@ -103,7 +103,7 @@ def test_transcript_language_flag_expands_zh(monkeypatch, capsys) -> None:
 
 
 def test_unexpected_exception_prints_json_and_exits_1(monkeypatch, capsys) -> None:
-    def boom(video_url, *, languages, allow_whisper):
+    def boom(video_url, *, languages, allow_whisper, **_):
         raise ValueError("surprise")
 
     monkeypatch.setattr(fetch, "transcribe", boom)

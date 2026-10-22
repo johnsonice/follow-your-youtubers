@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 from core import Snippet, TranscriptError
 from net import proxy_url
@@ -33,7 +33,11 @@ def parse_json3(data: dict) -> list[Snippet]:
     return out
 
 
-def try_ytdlp_subs(video_id: str, languages: Optional[list[str]]) -> Optional[tuple[str, list[Snippet]]]:
+def try_ytdlp_subs(
+    video_id: str,
+    languages: Optional[list[str]],
+    cookie_args: Sequence[str] = (),
+) -> Optional[tuple[str, list[Snippet]]]:
     exe = shutil.which("yt-dlp")
     if not exe:
         return None
@@ -44,6 +48,7 @@ def try_ytdlp_subs(video_id: str, languages: Optional[list[str]]) -> Optional[tu
             "--sub-langs", langs, "--sub-format", "json3",
             "-o", str(Path(tmp) / "%(id)s"), "--no-warnings", "--quiet",
         ]
+        cmd += list(cookie_args)
         px = proxy_url()
         if px:
             cmd += ["--proxy", px]
