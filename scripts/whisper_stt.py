@@ -142,6 +142,7 @@ def _ensure_whisper_size(audio_path: Path, workdir: Path) -> list[Path]:  # prag
     transcode = subprocess.run(
         [
             "ffmpeg",
+            "-nostdin",
             "-y",
             "-loglevel",
             "error",
@@ -155,6 +156,7 @@ def _ensure_whisper_size(audio_path: Path, workdir: Path) -> list[Path]:  # prag
             f"{AUDIO_BITRATE_KBPS}k",
             str(transcoded),
         ],
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=False,
@@ -186,6 +188,7 @@ def _segment_audio(audio_path: Path, workdir: Path) -> list[Path]:  # pragma: no
             "default=noprint_wrappers=1:nokey=1",
             str(audio_path),
         ],
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=False,
@@ -208,6 +211,7 @@ def _segment_audio(audio_path: Path, workdir: Path) -> list[Path]:  # pragma: no
     split = subprocess.run(
         [
             "ffmpeg",
+            "-nostdin",
             "-y",
             "-loglevel",
             "error",
@@ -221,6 +225,7 @@ def _segment_audio(audio_path: Path, workdir: Path) -> list[Path]:  # pragma: no
             "copy",
             pattern,
         ],
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=False,
