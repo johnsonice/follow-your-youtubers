@@ -57,7 +57,9 @@ def try_ytdlp_subs(
             cmd += ["--proxy", px]
         cmd.append(f"https://www.youtube.com/watch?v={video_id}")
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            proc = subprocess.run(
+                cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120
+            )
         except subprocess.TimeoutExpired as exc:
             raise TranscriptError(kind="ytdlp_failed", detail="yt-dlp timed out") from exc
         files = sorted(Path(tmp).glob(f"{video_id}.*.json3"))

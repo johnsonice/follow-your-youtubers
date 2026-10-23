@@ -133,6 +133,11 @@ did. Every rule below exists to keep a run from doing that again.
   between `transcript` calls (run them in one serial shell loop). There is
   no cap on how many videos a run fetches. Big runs just take longer
   (100 videos ≈ 10+ minutes), and that's the point.
+- **Redirect each call's stdin in that loop:** write
+  `fetch.py transcript ... < /dev/null`. fetch.py already keeps ffmpeg and
+  yt-dlp off stdin, but a `while read` loop still loses its queued lines to
+  any child that reads stdin. On 10-16 that sent a RhinoFinance transcript
+  to `transcripts/@inance/`.
 - **Only the requests the workflow needs:** one `latest` per channel, one
   `transcript` per new video. Never scrape channel or watch pages to
   pre-check dates, durations, or caption availability. `published` from
