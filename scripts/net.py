@@ -3,6 +3,10 @@
 Proxy: set YT_PROXY (preferred) or HTTPS_PROXY / https_proxy, e.g.
   YT_PROXY=http://user:pass@host:port
 It is applied to youtube-transcript-api, pytubefix and the yt-dlp fallback.
+
+Cookies: set YT_COOKIES_FILE (a Netscape cookies.txt) or YT_COOKIES_BROWSER
+(a yt-dlp --cookies-from-browser spec such as "chrome" or "chrome:Profile 1").
+The file wins when both are set. Cookies are only passed to yt-dlp.
 """
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional, TypeVar
+
+from core import TranscriptError
 
 T = TypeVar("T")
 
@@ -28,6 +34,22 @@ def proxy_url() -> Optional[str]:
         if val:
             return val
     return None
+
+
+def ytdlp_cookie_args() -> list[str]:
+    """yt-dlp cookie flags from the env; [] when cookies are not configured."""
+    path = os.environ.get("YT_COOKIES_FILE", "").strip()
+    if path:
+        cookies = Path(path).expanduser()
+        if not cookies.is_file():
+            raise TranscriptError(
+                kind="bad_cookies_file",
+                detail=f"YT_COOKIES_FILE points to {str(cookies)!r}, which is not a file.",
+                exit_code=3,
+            )
+        return ["--cookies", str(cookies)]
+    browser = os.environ.get("YT_COOKIES_BROWSER", "").strip()
+    return ["--cookies-from-browser", browser] if browser else []
 
 
 def is_block_error(exc: BaseException) -> bool:

@@ -5,12 +5,16 @@ Subcommands:
   latest      List a channel's recent uploads via YouTube's public RSS feed.
               Free, no API key, any-language channel. Shorts are dropped
               unless --include-shorts is passed.
-  transcript  Fetch a video transcript: native captions first (free), then
-              OpenAI Whisper fallback (~$0.006/min, needs OPENAI_API_KEY).
+  transcript  Fetch a video transcript. Order: yt-dlp with browser cookies
+              (if YT_COOKIES_FILE / YT_COOKIES_BROWSER is set), native
+              captions, yt-dlp without cookies, OpenAI Whisper (~$0.006/min,
+              needs OPENAI_API_KEY), then transcriptapi.com as a last resort
+              (1 credit, needs TRANSCRIPT_API_KEY).
 
 Output: one JSON object on stdout (transcript also supports --format text).
 The transcript shape mirrors transcriptapi.com's /transcript response plus a
-`source` field ("captions" | "whisper").
+`source` field ("captions" | "whisper" | "transcriptapi"). A transcriptapi
+result carries `metadata.youtube_error`, the YouTube failure that forced it.
 
 Exit codes:
   0 success · 1 transient (retry once) · 2 video/channel unavailable ·
@@ -36,8 +40,9 @@ from core import (
     load_dotenv_into_env,
     yt_object,
 )
-from net import log_skipped
+from net import log_skipped, ytdlp_cookie_args
 from rss import channel_latest
+from transcriptapi import fetch_transcript, transcriptapi_key
 from ytdlp_subs import try_ytdlp_subs
 from whisper_stt import download_audio, whisper_transcribe
 
@@ -56,9 +61,59 @@ def transcribe(
     *,
     languages: list[str] | None,
     allow_whisper: bool,
+    transcriptapi_only: bool = False,
+    allow_transcriptapi: bool = True,
 ) -> TranscriptResult:
-    """Captions -> Whisper orchestration. languages=None means auto-select."""
+    """YouTube paths first, transcriptapi last. languages=None means auto-select."""
     video_id = extract_video_id(video_url)
+    if transcriptapi_only:
+        return transcriptapi_fallback(video_id, TranscriptError(
+            kind="youtube_skipped", detail="--transcriptapi-only: YouTube paths not tried."))
+    cookie_args = ytdlp_cookie_args()
+    try:
+        return transcribe_youtube(
+            video_id, languages=languages, allow_whisper=allow_whisper, cookie_args=cookie_args
+        )
+    except TranscriptError as err:
+        if not allow_transcriptapi:
+            raise
+        return transcriptapi_fallback(video_id, err)
+
+
+def transcriptapi_fallback(video_id: str, youtube_err: TranscriptError) -> TranscriptResult:
+    """Last resort. Re-raises the YouTube error (annotated) when it can't help."""
+    api_key = transcriptapi_key()
+    if not api_key:
+        raise TranscriptError(
+            kind=youtube_err.kind,
+            detail=f"transcriptapi skipped (TRANSCRIPT_API_KEY not set); {youtube_err.detail}",
+            exit_code=youtube_err.exit_code,
+        ) from youtube_err
+    try:
+        lang, snippets, metadata = fetch_transcript(video_id, api_key)
+    except TranscriptError as api_err:
+        raise TranscriptError(
+            kind=youtube_err.kind,
+            detail=f"transcriptapi failed ({api_err.kind}: {api_err.detail[:200]}); {youtube_err.detail}",
+            exit_code=youtube_err.exit_code,
+        ) from api_err
+    return TranscriptResult(
+        video_id=video_id,
+        language=lang,
+        snippets=tuple(snippets),
+        metadata={**metadata, "youtube_error": f"{youtube_err.kind}: {youtube_err.detail[:300]}"},
+        source="transcriptapi",
+    )
+
+
+def transcribe_youtube(
+    video_id: str,
+    *,
+    languages: list[str] | None,
+    allow_whisper: bool,
+    cookie_args: list[str],
+) -> TranscriptResult:
+    """Cookies -> captions -> yt-dlp -> Whisper, all against YouTube."""
     # Metadata is nice-to-have: a blocked watch page must not cost us the
     # transcript, so degrade to empty metadata instead of aborting.
     yt = None
@@ -71,21 +126,32 @@ def transcribe(
         metadata = {"title": None, "author_name": None, "author_url": None,
                     "duration": None, "metadata_error": err.detail[:200]}
 
-    # Stage 1: youtube-transcript-api. Stage 2: yt-dlp subtitles fallback.
+    # Stage 0: yt-dlp with cookies. Stage 1: youtube-transcript-api.
+    # Stage 2: yt-dlp without cookies.
     captions = None
     primary_err = None
-    try:
-        captions = try_captions(video_id, languages)
-    except TranscriptError as err:
-        if err.exit_code == 2:
-            raise
-        primary_err = err
+    cookie_err = None
+    if cookie_args:
+        try:
+            captions = try_ytdlp_subs(video_id, languages, cookie_args)
+        except TranscriptError as err:
+            cookie_err = err
+    if captions is None:
+        try:
+            captions = try_captions(video_id, languages)
+        except TranscriptError as err:
+            if err.exit_code == 2:
+                raise
+            primary_err = err
     if captions is None:
         try:
             captions = try_ytdlp_subs(video_id, languages)
         except TranscriptError as err:
             if primary_err is None:
                 primary_err = err
+    # The cookie-less error is reported first: it is the one that shows an
+    # IP block, which the skill's circuit breaker keys on.
+    primary_err = primary_err or cookie_err
     if captions is None and primary_err is not None:
         raise primary_err
     if captions is not None:
@@ -154,6 +220,8 @@ def cmd_transcript(args: argparse.Namespace) -> int:
         args.video_url,
         languages=expand_language_preference(args.language),
         allow_whisper=not args.no_whisper,
+        transcriptapi_only=args.transcriptapi_only,
+        allow_transcriptapi=not args.no_transcriptapi,
     )
     if args.format == "text":
         sys.stdout.write("".join(s.text for s in result.snippets))
@@ -195,6 +263,15 @@ def build_parser() -> JsonArgumentParser:
     transcript.add_argument(
         "--no-whisper", action="store_true",
         help="Captions-only mode (free; exits 2 if no captions).",
+    )
+    transcript.add_argument(
+        "--transcriptapi-only", action="store_true",
+        help="Skip every YouTube path and go straight to transcriptapi.com "
+             "(use after YouTube has blocked this IP in the current run).",
+    )
+    transcript.add_argument(
+        "--no-transcriptapi", action="store_true",
+        help="Never fall back to transcriptapi.com (channels tagged backend=local).",
     )
     transcript.add_argument("--format", choices=("json", "text"), default="json")
     transcript.set_defaults(func=cmd_transcript)

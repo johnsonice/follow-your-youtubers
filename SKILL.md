@@ -6,17 +6,26 @@ description: |
   my youtubers", "pull today's videos", "refresh the channel digest", "track
   the finance YouTubers". Reads handles from channels.txt, discovers new
   uploads for free, fetches transcripts through a fallback chain
-  (transcriptapi if configured → free YouTube captions → OpenAI Whisper if
+  (yt-dlp with browser cookies if configured → free YouTube captions →
+  OpenAI Whisper if configured → transcriptapi.com as a paid last resort if
   configured), saves raw transcripts under transcripts/<handle>/, then writes
   a synthesis brief to daily/<YYYY-MM-DD>.md using the template selected in
   channels.txt (finance by default). The brief is written in whatever
   language the user asks for, or else the language of the request. Works
   with zero API keys.
 required_environment_variables:
-  - name: TRANSCRIPTAPI_API_KEY
-    prompt: transcriptapi.com API key (optional — leave empty to skip)
-    help: Optional. Unlocks the most reliable transcript backend (paid credits).
-    required_for: the transcriptapi stage only; the skill works without it
+  - name: TRANSCRIPT_API_KEY
+    prompt: transcriptapi.com API key, starts with sk_ (optional — leave empty to skip)
+    help: Optional. Last-resort transcript backend when YouTube blocks this IP (1 credit per transcript).
+    required_for: the transcriptapi fallback only; the skill works without it
+  - name: YT_COOKIES_FILE
+    prompt: Path to a Netscape cookies.txt exported from a logged-in YouTube session (optional)
+    help: Optional. yt-dlp sends these cookies first, which often gets past IP blocks. Wins over YT_COOKIES_BROWSER.
+    required_for: the cookies stage only
+  - name: YT_COOKIES_BROWSER
+    prompt: Browser for yt-dlp --cookies-from-browser, e.g. chrome or "chrome:Profile 1" (optional)
+    help: Optional. Same as YT_COOKIES_FILE but reads cookies straight from the browser.
+    required_for: the cookies stage only
   - name: OPENAI_API_KEY
     prompt: OpenAI API key (optional — leave empty to skip)
     help: Optional. Unlocks Whisper speech-to-text for caption-disabled videos (~$0.006/min).
@@ -55,7 +64,7 @@ skill-local virtualenv (see references/setup.md for first-run install).
   | --- | --- | --- | --- |
   | directive | `template` | `finance` (default) \| `general` | Selects `templates/<value>.md` for the daily brief. |
   | tag | `lang` | ISO code, e.g. `en`, `zh` — **required on every channel row** | Pins the caption track and the Whisper language hint for that channel. |
-  | tag | `backend` | `local` | Skip the transcriptapi stage for this channel (saves credits where it's known to fail, e.g. captions disabled). |
+  | tag | `backend` | `local` | Never fall back to transcriptapi for this channel: pass `--no-transcriptapi` (saves credits where it's known to fail, e.g. captions disabled). |
 
   **Why `lang` is required.** Videos with YouTube auto-dubbing list ~20
   auto-generated caption tracks, one per dubbed language. Without a language,
@@ -78,27 +87,33 @@ copying channels.example.txt) and tell the user before continuing.
 
 ## Transcript backend chain
 
-Per new video, try stages in order; first success wins. Log each fallthrough
-inline (`@handle:<videoId>: stage failed — <reason>`).
+The whole chain runs inside one `fetch.py` call per video. First success
+wins:
 
-1. **transcriptapi** — only if configured AND the channel is not tagged
-   `backend=local`. Configured means: the `transcriptapi` skill is installed
-   in your environment (preferred — use it per its own docs), or
-   `TRANSCRIPTAPI_API_KEY` is set (call the HTTP API per transcriptapi.com
-   docs). Costs 1 credit per transcript.
-2. **Local captions** — free, no account:
-   `.venv/bin/python scripts/fetch.py transcript --video-url=<videoId> --language <lang> --no-whisper --format json`
-   (always pass the channel's `lang` tag as `--language`, and always use the
-   `--video-url=<videoId>` form: a videoId starting with `-` is otherwise
-   parsed as a flag and fails with `bad_args`).
-3. **Whisper** — only if `OPENAI_API_KEY` resolves; ~$0.006/min:
-   `.venv/bin/python scripts/fetch.py transcript --video-url=<videoId> --language <lang> --format json`
-   (same `--language` rule). The script runs captions first internally, so
-   stage 3 also covers stage 2 — invoke stage 3 directly instead of stage 2
-   when a Whisper key exists.
+1. **yt-dlp with cookies.** Only if `YT_COOKIES_FILE` or `YT_COOKIES_BROWSER`
+   is set. Logged-in cookies often get past an IP block. Free.
+2. **YouTube captions** (youtube-transcript-api), then **yt-dlp without
+   cookies**. Both honour `YT_PROXY`. Free.
+3. **Whisper.** Only if `OPENAI_API_KEY` resolves and `--no-whisper` is not
+   passed. ~$0.006/min.
+4. **transcriptapi.com.** Only if `TRANSCRIPT_API_KEY` (or the older
+   `TRANSCRIPTAPI_API_KEY`) is set, every stage above failed, and
+   `--no-transcriptapi` is not passed. 1 credit per transcript. It does not
+   touch YouTube from this machine. Without a key the stage is skipped and
+   the skip is recorded in `transcripts/skipped.jsonl`.
+
+The command:
+`.venv/bin/python scripts/fetch.py transcript --video-url=<videoId> --language <lang> --format json`
+- Always pass the channel's `lang` tag as `--language`.
+- Always use the `--video-url=<videoId>` form. A videoId starting with `-`
+  is otherwise parsed as a flag and fails with `bad_args`.
+- Add `--no-whisper` when no Whisper key exists, and `--no-transcriptapi`
+  for channels tagged `backend=local`.
 
 `fetch.py` prints one JSON object on stdout. Success shape matches
-transcriptapi's `/transcript` response plus `source: "captions" | "whisper"`.
+transcriptapi's `/transcript` response plus
+`source: "captions" | "whisper" | "transcriptapi"`. A `transcriptapi` result
+also carries `metadata.youtube_error`, the YouTube failure that forced it.
 Errors: `{"error": kind, "detail": msg}` with exit codes 0 success · 1
 transient (retry once — except IP blocks, see below) · 2 unavailable (skip) ·
 3 caller error (fix config).
@@ -123,13 +138,16 @@ did. Every rule below exists to keep a run from doing that again.
   pre-check dates, durations, or caption availability. `published` from
   discovery is enough to filter, and fetch.py returns the metadata itself.
 - **Circuit breaker — stop on the first block.** If any fetch.py error
-  detail contains `IpBlocked` or `RequestBlocked`, or YouTube answers
-  HTTP 429:
+  detail, or a `transcriptapi` result's `metadata.youtube_error`, contains
+  `IpBlocked` or `RequestBlocked`, or YouTube answers HTTP 429:
   1. Stop all YouTube requests for the rest of the run.
   2. Do not retry. Retries extend the block.
   3. Do not route the remaining videos through Whisper as a workaround.
      That spends money and still downloads the audio from YouTube.
-  4. Keep what was saved, write the brief if any transcripts were
+  4. If `TRANSCRIPT_API_KEY` is set, keep going with the remaining
+     videos using `--transcriptapi-only`, which sends no YouTube request.
+     Skip channels tagged `backend=local`.
+  5. Keep what was saved, write the brief if any transcripts were
      captured, and tell the user to switch networks (toggle the VPN or use
      a phone hotspot) or wait a few hours before the next run.
 - **RSS outage ≠ bad handles.** If `latest` fails with `rss_fetch_failed`
@@ -232,9 +250,8 @@ transcript_source: captions # transcriptapi | captions | whisper
 filler. This is the source of truth for re-summarization later.>
 ```
 
-`transcript_source` values: `transcriptapi` (stage 1), `captions` (stage 2 or
-fetch.py's captions path), `whisper` (fetch.py's Whisper path — copy the
-`source` field from its output).
+`transcript_source`: copy the `source` field from fetch.py's output
+(`captions`, `whisper` or `transcriptapi`).
 
 ## Cost discipline
 
@@ -261,16 +278,20 @@ fetch.py's captions path), `whisper` (fetch.py's Whisper path — copy the
 - Single-video failure → fall through the chain; if exhausted, log and skip.
   No file is written, so later runs retry it while it is inside the step-2
   window.
-- transcriptapi 402 (out of credits) → disable stage 1 for the rest of the
-  run; the chain continues at stage 2. Surface in the tally.
-- fetch.py exit 3 (`missing_openai_key`, `openai_auth`) → disable stage 3 for
+- transcriptapi out of credits (`transcriptapi_no_credits` in the error
+  detail) → pass `--no-transcriptapi` for the rest of the run. Surface in
+  the tally.
+- fetch.py exit 3 `bad_cookies_file` → `YT_COOKIES_FILE` points nowhere.
+  Stop and tell the user. Every video would fail the same way.
+- fetch.py exit 3 (`missing_openai_key`, `openai_auth`) → pass `--no-whisper` for
   the run; surface in the tally so the user knows to fix the key.
 - fetch.py exit 1 (`openai_unavailable`, `audio_*`, `captions_fetch_failed`
   without an IP block) → per-video transient; retry once, then skip that
   video and keep going.
 - `IpBlocked` / `RequestBlocked` / HTTP 429 from YouTube → circuit breaker
   (see YouTube request discipline): stop all YouTube requests, no retries,
-  no Whisper workaround, tell the user to switch networks or wait.
+  no Whisper workaround, finish with `--transcriptapi-only` if a key is
+  set, tell the user to switch networks or wait.
 - `rss_fetch_failed` 404 on 2 channels in a row → RSS endpoint outage, not
   bad handles; stop discovery and report.
 - Bogus `@handle` → expected; report and move on.

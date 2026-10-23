@@ -48,12 +48,14 @@ If none of the above is set and the captions path fails, the script exits
 with code 3 and `{"error": "missing_openai_key", ...}`. The captions-only
 path (`--no-whisper`) works without any key.
 
-## TRANSCRIPTAPI_API_KEY (optional stage-1 backend)
+## TRANSCRIPT_API_KEY (optional last-resort backend)
 
-Set `TRANSCRIPTAPI_API_KEY` (same discovery order as above) or install the
-`transcriptapi` skill to enable the transcriptapi backend — the most
-reliable option, at 1 credit per transcript. Without it, the skill uses the
-free local captions path and (if `OPENAI_API_KEY` is set) Whisper.
+Set `TRANSCRIPT_API_KEY` (same discovery order as above; the older
+`TRANSCRIPTAPI_API_KEY` also works) to let `fetch.py` fall back to
+transcriptapi.com after every YouTube path has failed. It costs 1 credit per
+transcript and works while this machine's IP is blocked. Without it the
+stage is skipped and logged to `transcripts/skipped.jsonl`. See the README
+section "Getting past YouTube IP blocks" for signup steps.
 
 ## Why `pytubefix` instead of `yt-dlp`
 
@@ -96,5 +98,6 @@ equivalent `yt-dlp` calls — the rest of the pipeline is unchanged.
 ## Proxy, fallback and skipped-video log
 
 - **Proxy:** set `YT_PROXY=http://user:pass@host:port` (or `HTTPS_PROXY`) in the shell or skill-local `.env`. It is used by youtube-transcript-api, pytubefix and yt-dlp. A rotating residential proxy is the durable fix for `IpBlocked`; with a proxy set, blocked caption fetches are retried with exponential backoff (3 attempts). Without a proxy, blocks are not retried (that only extends the block).
-- **Fallback:** if youtube-transcript-api fails or finds nothing, `yt-dlp` subtitles (json3) are tried if `yt-dlp` is on PATH. Metadata failures no longer abort the transcript.
+- **Cookies:** set `YT_COOKIES_FILE` (Netscape cookies.txt) or `YT_COOKIES_BROWSER` (e.g. `chrome`). When set, yt-dlp with those cookies runs before every other stage. Cookies are only sent to yt-dlp.
+- **Fallback:** if youtube-transcript-api fails or finds nothing, `yt-dlp` subtitles (json3) are tried if `yt-dlp` is on PATH. Metadata failures no longer abort the transcript. When everything on YouTube fails, transcriptapi.com is tried if `TRANSCRIPT_API_KEY` is set.
 - **Skipped videos:** every failed `transcript` call appends a line to `transcripts/skipped.jsonl` (`video_id`, `error`, `detail`, `ts`). Retry them later, serially, from a different network/proxy.

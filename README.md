@@ -67,14 +67,56 @@ the channels' `lang=` tags, so a Chinese brief can cover English channels.
 
 ## Transcript backend chain
 
+`scripts/fetch.py transcript` tries these in order and stops at the first
+success:
+
 | Stage | Needs | Cost |
 |---|---|---|
-| 1. [transcriptapi.com](https://transcriptapi.com) | `TRANSCRIPTAPI_API_KEY` or the transcriptapi skill | 1 credit/video |
-| 2. YouTube captions (local) | nothing | free |
+| 1. yt-dlp with your YouTube cookies | `YT_COOKIES_FILE` or `YT_COOKIES_BROWSER` | free |
+| 2. YouTube captions, then yt-dlp without cookies | nothing (`YT_PROXY` optional) | free |
 | 3. OpenAI Whisper | `OPENAI_API_KEY` | ~$0.006/min |
+| 4. [transcriptapi.com](https://transcriptapi.com) | `TRANSCRIPT_API_KEY` | 1 credit/video |
 
-Stages are optional top-down: with no keys at all, stage 2 still covers every
-video that has captions in any language.
+Every stage except 2 is optional. With nothing configured, stage 2 still
+covers every video that has captions in any language. Stage 4 runs only when
+stages 1–3 all failed. Without a key it is skipped, and the skip is written
+to `transcripts/skipped.jsonl`.
+
+## Getting past YouTube IP blocks
+
+When YouTube answers `IpBlocked` / `RequestBlocked`, configure one or both of
+these in the skill-local `.env` (gitignored).
+
+**Cookies (first choice, free).** yt-dlp sends the cookies of a logged-in
+YouTube session, which YouTube throttles far less than anonymous requests.
+
+- `YT_COOKIES_FILE=/absolute/path/to/youtube-cookies.txt`. A Netscape-format
+  file. Export it from a logged-in browser window with a cookies.txt
+  extension, or run
+  `yt-dlp --cookies-from-browser chrome --cookies youtube-cookies.txt --skip-download https://www.youtube.com/watch?v=dQw4w9WgXcQ`
+  once. Prefer this for scheduled runs: it never triggers a macOS Keychain
+  prompt.
+- `YT_COOKIES_BROWSER=chrome` (or `chrome:Profile 1`, `firefox`, `safari`).
+  yt-dlp reads cookies straight from the browser on every call. On macOS
+  the first Chrome read asks for Keychain access ("Chrome Safe Storage").
+  Click "Always Allow" once, or an unattended run will sit on the prompt.
+- If both are set, `YT_COOKIES_FILE` wins.
+- Use a throwaway Google account if you can. YouTube can flag accounts
+  whose cookies make automated requests.
+
+**transcriptapi.com (last resort, paid per transcript).** It fetches the
+transcript on its own servers, so it works even while this machine is
+blocked.
+
+1. Sign up at https://transcriptapi.com. A free account comes with 100
+   credits and needs no card. The Starter plan is $5/month for 1,000
+   credits.
+2. Copy the API key from the dashboard. It starts with `sk_`.
+3. Add `TRANSCRIPT_API_KEY=sk_...` to `.env`. The older name
+   `TRANSCRIPTAPI_API_KEY` still works.
+4. Each transcript costs 1 credit. Add `--no-transcriptapi` (or tag the
+   channel `backend=local`) where it isn't worth paying, e.g. channels with
+   captions disabled.
 
 ## Repo layout
 
