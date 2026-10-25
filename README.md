@@ -82,6 +82,16 @@ covers every video that has captions in any language. Stage 4 runs only when
 stages 1–3 all failed. Without a key it is skipped, and the skip is written
 to `transcripts/skipped.jsonl`.
 
+## Deliver transcripts to a memory vault
+
+If the omniverse-memory skill is installed and configured, each run sends the last seven days of transcripts to that vault as sources. Ids the vault already holds are skipped, so a day a failed run missed is resent by the next one. To send a specific range:
+
+```bash
+.venv/bin/python scripts/deliver_memory.py --from 2026-10-20 --to 2026-10-24
+```
+
+Each transcript is captured once under `youtube:<videoId>`, so rerunning is safe. Without omniverse-memory the script prints a skip notice and exits 0.
+
 ## Getting past YouTube IP blocks
 
 When YouTube answers `IpBlocked` / `RequestBlocked`, configure one or both of

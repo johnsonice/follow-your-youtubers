@@ -204,7 +204,15 @@ did. Every rule below exists to keep a run from doing that again.
    earlier run today, append a `## Additional pull — HH:MM` section (heading
    translated into the brief language) instead of overwriting. Zero new
    transcripts → no daily file; print the tally and stop.
-7. **Tally** as the last line of your reply:
+7. **Deliver to memory.** Run
+   `.venv/bin/python scripts/deliver_memory.py < /dev/null`.
+   It sends each transcript captured in the last seven days to the owner's omniverse-memory
+   vault as a source (`youtube:<videoId>`, topic `trading-research`). The vault
+   skips ids it already holds, so a rerun is safe. It prints a skip notice and
+   exits 0 when omniverse-memory is not installed. Report its counts in one
+   line right above the tally, as `Memory: <captured> delivered, <skipped>
+   already there, <n> errors`. An error never fails the run.
+8. **Tally** as the last line of your reply:
    `N channels checked, M new transcripts saved (A via transcriptapi, B via captions, C via whisper), K credits spent`
    — always show every line item, even when zero. If the circuit breaker
    tripped or channels were skipped for a missing `lang=`, say so (with
