@@ -84,7 +84,7 @@ to `transcripts/skipped.jsonl`.
 
 ## Deliver transcripts to a memory vault
 
-If the omniverse-memory skill is installed and configured, each run sends the day's transcripts to that vault as sources:
+If the omniverse-memory skill is installed and configured, each run sends the last seven days of transcripts to that vault as sources. Ids the vault already holds are skipped, so a day a failed run missed is resent by the next one. To send a specific range:
 
 ```bash
 .venv/bin/python scripts/deliver_memory.py --from 2026-10-20 --to 2026-10-24

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import deliver_memory as dm
@@ -90,3 +91,26 @@ def test_main_skips_quietly_when_omniverse_memory_is_not_installed(tmp_path, mon
 
     assert code == 0
     assert json.loads(capsys.readouterr().out) == {"status": "skipped", "reason": "omniverse-memory is not installed"}
+
+
+def test_main_reports_an_operational_omem_failure_instead_of_skipping(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(dm, "find_omem", lambda: Path("/fake/omem"))
+    monkeypatch.setattr(dm, "omem_runner", lambda omem: lambda argv: (1, {"error": "uv: command not found"}))
+
+    code = dm.main(["--transcripts", str(tmp_path), "--from", "2026-10-24"])
+
+    assert code == 1
+    assert json.loads(capsys.readouterr().out) == {"status": "failed", "reason": "uv: command not found"}
+
+
+def test_main_skips_quietly_when_omniverse_memory_has_no_config(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(dm, "find_omem", lambda: Path("/fake/omem"))
+    monkeypatch.setattr(dm, "omem_runner", lambda omem: lambda argv: (
+        2, {"error": "no config at /x/config.yaml; run `omem init --vault <path> --project <name>` first"}))
+
+    assert dm.main(["--transcripts", str(tmp_path), "--from", "2026-10-24"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "skipped"
+
+
+def test_default_window_covers_the_last_seven_days_so_a_missed_day_is_resent():
+    assert dm.default_window(date(2026, 10, 25)) == ("2026-10-19", "2026-10-25")

@@ -3,10 +3,12 @@
 
 Each transcript captured in the date range becomes one `omem capture --kind
 source` call with source id `youtube:<videoId>`. The vault skips ids it already
-holds, so rerunning is safe. Without omniverse-memory installed or configured,
-this prints a skip notice and exits 0, so the daily run never fails on it.
+holds, so rerunning is safe, and the default window is the last seven days so a
+day missed by a failed run is resent by the next one. Without omniverse-memory
+installed or configured, this prints a skip notice and exits 0, so the daily run
+never fails on it. Any other omem failure is reported and exits 1.
 
-Usage: deliver_memory.py --from YYYY-MM-DD [--to YYYY-MM-DD] [--topic trading-research]
+Usage: deliver_memory.py [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--topic trading-research]
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ import socket
 import subprocess
 import sys
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -27,6 +29,11 @@ OMEM_CANDIDATES = (
     Path("~/.agents/skills/omniverse-memory/scripts/omem").expanduser(),
 )
 Runner = Callable[[list], tuple]
+WINDOW_DAYS = 7
+
+
+def default_window(today: date) -> tuple[str, str]:
+    return (today - timedelta(days=WINDOW_DAYS - 1)).isoformat(), today.isoformat()
 
 
 def find_omem() -> Optional[Path]:
@@ -96,7 +103,7 @@ def omem_runner(omem: Path) -> Runner:
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--transcripts", type=Path, default=SKILL_DIR / "transcripts")
-    parser.add_argument("--from", dest="start", default=date.today().isoformat())
+    parser.add_argument("--from", dest="start")
     parser.add_argument("--to", dest="end")
     parser.add_argument("--topic", default="trading-research")
     args = parser.parse_args(argv)
@@ -107,9 +114,16 @@ def main(argv: Optional[list] = None) -> int:
     run = omem_runner(omem)
     code, config = run(["config"])
     if code != 0:
-        print(json.dumps({"status": "skipped", "reason": config.get("error", "omniverse-memory is not configured")}))
-        return 0
-    report = deliver(args.transcripts, args.start, args.end or args.start, topic=args.topic,
+        reason = str(config.get("error", "omem config failed"))
+        if reason.startswith("no config"):
+            print(json.dumps({"status": "skipped", "reason": reason}))
+            return 0
+        print(json.dumps({"status": "failed", "reason": reason}))
+        return 1
+    start, end = default_window(date.today())
+    start = args.start or start
+    end = args.end or (args.start if args.start else end)
+    report = deliver(args.transcripts, start, end, topic=args.topic,
                      by=f"follow-your-youtubers@{socket.gethostname().split('.')[0]}", run=run)
     print(json.dumps(report, ensure_ascii=False))
     return 1 if report["errors"] else 0

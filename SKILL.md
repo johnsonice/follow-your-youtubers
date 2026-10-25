@@ -205,8 +205,8 @@ did. Every rule below exists to keep a run from doing that again.
    translated into the brief language) instead of overwriting. Zero new
    transcripts → no daily file; print the tally and stop.
 7. **Deliver to memory.** Run
-   `.venv/bin/python scripts/deliver_memory.py --from <today> < /dev/null`.
-   It sends each transcript captured today to the owner's omniverse-memory
+   `.venv/bin/python scripts/deliver_memory.py < /dev/null`.
+   It sends each transcript captured in the last seven days to the owner's omniverse-memory
    vault as a source (`youtube:<videoId>`, topic `trading-research`). The vault
    skips ids it already holds, so a rerun is safe. It prints a skip notice and
    exits 0 when omniverse-memory is not installed. Report its counts in one
